@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LinkSentinel — Analyse défensive de liens suspects</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand">
+        <span class="brand-badge" aria-hidden="true">🛡️</span>
+        <div>
+          <h1>LinkSentinel</h1>
+          <p class="subtitle">Analyse structurelle et réputation d’URL sans visite du site cible</p>
+        </div>
+      </div>
+      <div class="security-pill" title="LinkSentinel n'effectue aucune requête HTTP ni résolution DNS vers le lien soumis">
+        Mode passif Zero-Touch • Protection OWASP SSRF
+      </div>
+    </div>
+  </header>
+
+  <main class="container main-content">
+    <section class="card analyzer-card" aria-labelledby="form-heading">
+      <h2 id="form-heading">Vérifier un lien reçu par SMS, WhatsApp, Messenger ou e-mail</h2>
+      <p class="helper-text">
+        Collez le lien suspect ci-dessous. LinkSentinel inspecte sa structure et interroge les bases de menaces
+        <strong>sans jamais ouvrir la page de destination</strong>.
+      </p>
+
+      <form id="analyze-form" novalidate>
+        <div class="input-group">
+          <label for="url-input" class="sr-only">URL à analyser</label>
+          <input
+            type="text"
+            id="url-input"
+            name="url"
+            placeholder="https://exemple.fr/verification-colis..."
+            autocomplete="off"
+            autocapitalize="none"
+            spellcheck="false"
+            maxlength="2048"
+            required
+          >
+          <button type="submit" id="submit-btn" class="btn btn-primary">
+            Analyser le lien
+          </button>
+          <button type="button" id="clear-btn" class="btn btn-secondary">
+            Effacer
+          </button>
+        </div>
+      </form>
+
+      <div class="presets-box">
+        <span class="presets-label">Exemples synthétiques de démonstration (RFC 2606 / RFC 5737 — inoffensifs) :</span>
+        <div class="presets-buttons">
+          <button type="button" class="chip" data-sample-url="https://www.example.com/suivi/colis-info">
+            1. Lien HTTPS standard
+          </button>
+          <button type="button" class="chip" data-sample-url="https://banque-securite@xn--pple-43d.example.test:8443/documents/facture_2026.exe">
+            2. Piège Punycode + @ + .exe
+          </button>
+          <button type="button" class="chip" data-sample-url="https://bit.ly/3ExempleSynthetique">
+            3. Lien raccourci (destination masquée)
+          </button>
+          <button type="button" class="chip" data-sample-url="http://198.51.100.42/connexion-urgente">
+            4. Hôte IP brute en HTTP
+          </button>
+          <button type="button" class="chip" data-sample-url="http://169.254.169.254/latest/meta-data/">
+            5. Cible interne / Métadonnées (SSRF)
+          </button>
+          <button type="button" class="chip" data-sample-url="javascript:alert(document.cookie)">
+            6. Schéma interdit (javascript:)
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Bannière d'erreur de validation ou d'API -->
+    <section id="error-section" class="card error-banner" role="alert" hidden>
+      <div class="error-header">
+        <strong id="error-title">Requête refusée</strong>
+        <span id="error-code" class="code-pill"></span>
+      </div>
+      <p id="error-message"></p>
+    </section>
+
+    <!-- Section du rapport d'analyse -->
+    <section id="report-section" class="report-container" aria-live="polite" hidden>
+      <!-- Verdict Global -->
+      <div id="verdict-banner" class="card verdict-banner">
+        <div class="verdict-top">
+          <span id="verdict-badge" class="status-badge"></span>
+          <span id="analyzed-at" class="timestamp"></span>
+        </div>
+        <h2 id="verdict-title" class="verdict-title"></h2>
+        <p id="verdict-summary" class="verdict-summary"></p>
+      </div>
+
+      <!-- Métadonnées de l'URL (Affichage inerte sans lien cliquable) -->
+      <div class="card metadata-card">
+        <h3>Identification technique de la cible (affichage inerte non cliquable)</h3>
+        <div class="metadata-grid">
+          <div class="meta-item">
+            <span class="meta-label">Domaine extrait (Hostname)</span>
+            <code id="meta-hostname" class="meta-value highlight-host"></code>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Protocole</span>
+            <code id="meta-scheme" class="meta-value"></code>
+          </div>
+          <div class="meta-item meta-full">
+            <div class="meta-label-row">
+              <span class="meta-label">URL neutralisée (Defanged — partageable sans risque de clic)</span>
+              <button type="button" id="copy-defanged-btn" class="btn-small">Copier l’URL défangée</button>
+            </div>
+            <code id="meta-defanged" class="meta-value code-break"></code>
+          </div>
+          <div class="meta-item meta-full">
+            <span class="meta-label">URL normalisée (identifiants éventuels masqués)</span>
+            <code id="meta-submitted" class="meta-value code-break"></code>
+          </div>
+        </div>
+      </div>
+
+      <!-- Grille principale : Fournisseurs & Signaux -->
+      <div class="details-grid">
+        <div class="card">
+          <h3>Sources de renseignement (Threat Intelligence)</h3>
+          <p class="section-note">
+            État de chaque base externe interrogée. Une source indisponible empêche toute conclusion complète.
+          </p>
+          <div id="providers-list" class="stack-list"></div>
+        </div>
+
+        <div class="card">
+          <h3>Indices et signaux relevés</h3>
+          <p class="section-note">
+            Distinction entre menaces confirmées par une base, signaux heuristiques locaux et observations neutres.
+          </p>
+          <div id="findings-list" class="stack-list"></div>
+        </div>
+      </div>
+
+      <!-- Recommandations de prudence -->
+      <div class="card recommendations-card">
+        <h3>Recommandations de prudence</h3>
+        <ul id="recommendations-list" class="recommendations-list"></ul>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>
+        <strong>Avertissement important :</strong> LinkSentinel est un outil d’aide à la décision. L’absence de menace connue ne garantit
+        jamais à 100 % qu’un site est légitime. Les URL complètes ne sont ni ouvertes ni enregistrées dans les journaux du serveur.
+      </p>
+    </div>
+  </footer>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>
